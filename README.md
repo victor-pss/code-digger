@@ -1,1 +1,1 @@
-# code-digger
+# code-digger_go

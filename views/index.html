@@ -1,0 +1,94 @@
+{{ block "index" . }}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="css/main.css">
+        <title>Code Digger Go</title>
+
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+        <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/disable-element.js"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body>
+        <div class="container mx-auto space-y-4 w-7/12 pt-24">
+            <h1>Code Digger</h1>
+            <p>This app helps search for static text in files by crawling through a sites FTP directory. 
+               In this case, the folder that is crawled is the theme folder for WordPress sites. A future version
+               will be able to crawl any folder you specify. Please enter the FTP credentials below.</p>
+            {{ template "form" . }}
+            <hr>
+            <div id="result-section">
+                {{ template "results" . }}
+            </div>
+        </div>
+        <script src="assets/js/scripts.js"></script>
+    </body>
+</html>
+
+{{ end }}
+
+{{ define "form" }}
+<form class="flex flex-col space-y-2" hx-post="/ftp" hx-target="#result-section" hx-ext="disable-element" hx-disable-element="#submit" hx-on::before-request="showGif()" hx-on::after-request="removeGif()">
+    <div class="flex flex-col">
+        <label for="host">FPT Host</label>
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="Enter the host IP address" type="text" name="host" value="92.204.139.241" />
+    </div>
+
+    <div class="flex flex-col">
+        <label for="user">FTP User:</label>
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="user" value="sandboxvictorpss" />
+    </div>
+
+    <div class="flex flex-col">
+        <label for="password"> FTP Password:</label>
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="password" name="password" value=";D=9?ycaUA{qZ_!.Q-" />
+    </div>
+
+    <div class="flex flex-col">
+        <label for="path">Search Path:</label>
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="path" value="/public_html/wp-content/themes/pss-theme" />
+    </div>
+
+    <div class="flex flex-col">
+        <label for="terms">Terms:</label>
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="terms" value="team" />
+        <small class="text-gray-500">Multiple terms must be separated by commas.</small>
+    </div>
+    
+    <div class="flex flex-col">
+        <input class="box-content text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium rounded text-sm px-5 py-2.5 text-center me-2 mb-2 disabled:bg-blue-300 shadow-lg" type="submit" class="btn" id="submit" value="Search!" hx-indicator="#loading" /> 
+    </div>
+</form>
+{{ end }}
+
+{{ define "results" }}
+<div>
+    <div class="hidden video" id="loading" >
+        <video autoplay loop muted inline >
+            <source src="assets/videos/miner.mp4" type="video/mp4"  />
+        </video>
+    </div>
+    {{ if .Results }}
+    <div>
+        {{ range .Results }}
+        <div class="result" id="ftp-results">
+            <p>{{ .Path }}</p>
+            <ul>
+                {{ range .Terms }}
+                <li>{{ . }}</li>
+                {{ end }}
+            </ul>
+        </div>
+        {{ end }}
+    </div>
+    {{ else }}
+    <div class="hidden" id="no-results">
+        <h2>Results:</h2>
+        <p>No results found.</p>
+    </div>
+    {{ end }}
+</div>
+{{ end }}
+
