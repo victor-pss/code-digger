@@ -33,27 +33,27 @@
 <form class="flex flex-col space-y-2" hx-post="/ftp" hx-target="#result-section" hx-ext="disable-element" hx-disable-element="#submit" hx-on::before-request="showGif()" hx-on::after-request="removeGif()">
     <div class="flex flex-col">
         <label for="host">FPT Host</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="Enter the host IP address" type="text" name="host" value="92.204.139.241" />
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="Enter the host IP address" type="text" name="host" value="" />
     </div>
 
     <div class="flex flex-col">
         <label for="user">FTP User:</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="user" value="sandboxvictorpss" />
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="user" value="" />
     </div>
 
     <div class="flex flex-col">
         <label for="password"> FTP Password:</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="password" name="password" value=";D=9?ycaUA{qZ_!.Q-" />
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="password" name="password" value="" />
     </div>
 
     <div class="flex flex-col">
         <label for="path">Search Path:</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="path" value="/public_html/wp-content/themes/pss-theme" />
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="path" value="/public_html/wp-content/themes" />
     </div>
 
     <div class="flex flex-col">
         <label for="terms">Terms:</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="terms" value="team" />
+        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="terms" value="the_field, the_sub_field, echo echo" />
         <small class="text-gray-500">Multiple terms must be separated by commas.</small>
     </div>
     
