@@ -55,7 +55,7 @@ func FtpCrawl(host, user, password, path, terms string) []file {
 
 			for _, entry := range entries {
 				// if strings.HasSuffix(entry.Name, ".php") {
-				if strings.HasSuffix(entry.Name, ".php") {
+				if strings.HasSuffix(entry.Name, ".php") || strings.HasSuffix(entry.Name, ".js") {
 					fmt.Println(w.Path() + "/" + entry.Name)
 					r, err := c.Retr(w.Path() + "/" + entry.Name)
 					if err != nil {
