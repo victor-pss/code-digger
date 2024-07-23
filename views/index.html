@@ -72,6 +72,10 @@
     </div>
     {{ if .Results }}
     <div>
+        <div>
+            <p>Total Files: {{ .TotalFiles }}</p>
+            <p>Total Terms: {{ .TotalTerms }}</p>
+        </div>
         {{ range .Results }}
         <div class="result" id="ftp-results">
             <p>{{ .Path }}</p>
