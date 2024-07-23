@@ -8,7 +8,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	// "github.com/labstack/echo/v4/middleware"
-	// add ftpcrawl.go from ../internal/ftpcrawl.go
 	crawler "example.com/m/cmd/internal/ftpcrawler"
 )
 
@@ -43,7 +42,9 @@ type file struct {
 }
 
 type Results struct {
-	Results []file
+	Results    []file
+	TotalFiles int
+	TotalTerms int
 }
 
 // type Page struct {
@@ -59,8 +60,9 @@ type Results struct {
 // 	return stringSlices
 // }
 
-func countAndFormatTerms(byteSlices [][]byte) []string {
+func countAndFormatTerms(byteSlices [][]byte) ([]string, int) {
 	termCount := make(map[string]int)
+	totalTerms := 0
 	for _, byteSlice := range byteSlices {
 		term := string(byteSlice)
 		termCount[term]++
@@ -69,9 +71,11 @@ func countAndFormatTerms(byteSlices [][]byte) []string {
 	var formattedTerms []string
 	for term, count := range termCount {
 		formattedTerms = append(formattedTerms, fmt.Sprintf("%s - %d", term, count))
+		totalTerms += count
 	}
 
-	return formattedTerms
+	// fmt.Println("Total Terms: ", totalTerms)
+	return formattedTerms, totalTerms
 }
 
 // Define the CustomField struct
@@ -123,17 +127,23 @@ func main() {
 
 		// fmt.Print("pre")
 		results := Results{
-			Results: make([]file, len(rawResults)),
+			Results:    make([]file, len(rawResults)),
+			TotalFiles: len(rawResults),
+			TotalTerms: 0,
 		}
-
+		fmt.Println(len(rawResults))
+		total := 0
 		for i, rawResult := range rawResults {
-			formattedTerms := countAndFormatTerms(rawResult.Terms) // Count and format terms
+			formattedTerms, totalTerms := countAndFormatTerms(rawResult.Terms) // Count and format terms
+			total += totalTerms
 			results.Results[i] = file{
 				Path:  rawResult.Path, // Access the correct Path field
 				Terms: formattedTerms, // Store the formatted terms
 			}
 		}
 
+		results.TotalTerms = total
+		fmt.Println(results.TotalTerms)
 		fmt.Println(results)
 		return c.Render(200, "results", results)
 	})
