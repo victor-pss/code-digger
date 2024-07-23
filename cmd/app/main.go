@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	// "github.com/labstack/echo/v4/middleware"
 	// add ftpcrawl.go from ../internal/ftpcrawl.go
 	crawler "example.com/m/cmd/internal/ftpcrawler"
 )
@@ -99,7 +99,7 @@ func newPageFromData(data []byte) (*Page, error) {
 func main() {
 
 	e := echo.New()
-	e.Use(middleware.Logger())
+	// e.Use(middleware.Logger())
 
 	// page := newPage()
 	e.Renderer = newTemplate()
