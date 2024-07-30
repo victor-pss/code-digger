@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net/http"
+	"strings"
 
-	"github.com/labstack/echo/v4"
-	// "github.com/labstack/echo/v4/middleware"
 	crawler "example.com/m/cmd/internal/ftpcrawler"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 type Templates struct {
@@ -103,7 +105,8 @@ func newPageFromData(data []byte) (*Page, error) {
 func main() {
 
 	e := echo.New()
-	// e.Use(middleware.Logger())
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
 
 	// page := newPage()
 	e.Renderer = newTemplate()
@@ -113,7 +116,7 @@ func main() {
 
 	e.GET("/", func(c echo.Context) error {
 		// return c.Render(200, "index.html", page)
-		return c.Render(200, "index.html", nil)
+		return c.Render(http.StatusOK, "index.html", nil)
 	})
 
 	e.POST("/ftp", func(c echo.Context) error {
@@ -123,7 +126,17 @@ func main() {
 		path := c.FormValue("path")
 		terms := c.FormValue("terms")
 
-		rawResults := crawler.FtpCrawl(host, user, password, path, terms)
+		// trim whitespace
+		hostT := strings.TrimSpace(host)
+		userT := strings.TrimSpace(user)
+		passwordT := strings.TrimSpace(password)
+		pathT := strings.TrimSpace(path)
+		termsT := strings.TrimSpace(terms)
+
+		rawResults := crawler.FtpCrawl(hostT, userT, passwordT, pathT, termsT)
+		if rawResults == nil {
+			return c.String(http.StatusInternalServerError, "Error crawling FTP")
+		}
 
 		// fmt.Print("pre")
 		results := Results{
@@ -132,6 +145,8 @@ func main() {
 			TotalTerms: 0,
 		}
 		fmt.Println(len(rawResults))
+		fmt.Println("rawResults:")
+		fmt.Println(rawResults)
 		total := 0
 		for i, rawResult := range rawResults {
 			formattedTerms, totalTerms := countAndFormatTerms(rawResult.Terms) // Count and format terms
@@ -141,11 +156,13 @@ func main() {
 				Terms: formattedTerms, // Store the formatted terms
 			}
 		}
-
+		fmt.Println("before TotalTerms")
 		results.TotalTerms = total
+		fmt.Println("after TotalTerms")
 		fmt.Println(results.TotalTerms)
 		fmt.Println(results)
-		return c.Render(200, "results", results)
+		fmt.Println("after results")
+		return c.Render(http.StatusOK, "results", results)
 	})
 	e.Logger.Fatal(e.Start(":42069"))
 }
