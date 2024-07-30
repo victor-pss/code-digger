@@ -71,21 +71,30 @@
         </video>
     </div>
     {{ if .Results }}
-    <div>
-        <div>
-            <p>Total Files: {{ .TotalFiles }}</p>
-            <p>Total Terms: {{ .TotalTerms }}</p>
+    <div id="ftp-results">
+        <div class="flex flex-row justify-center">
+            <p class="px-3">Total Files: <span class="text-green-500">{{ .TotalFiles }}</span></p>
+            <p class="px-3"> | </p>
+            <p class="px-3">Total Terms: <span class="text-green-500">{{ .TotalTerms }}</span></p>
         </div>
-        {{ range .Results }}
         <div class="result" id="ftp-results">
-            <p>{{ .Path }}</p>
-            <ul>
-                {{ range .Terms }}
-                <li>{{ . }}</li>
-                {{ end }}
-            </ul>
+            <table class="table-auto border border-black">
+                <thead>
+                    <tr class="bg-gray-300">
+                        <th>File</th>
+                        <th>Terms Found</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Results }}
+                        <tr class="even:bg-gray-300 odd:bg-white">
+                            <td class="text-sm pl-5">{{ .Path }}</td>
+                            <td class="text-sm w-[33%] text-center">{{ range .Terms }}<span>{{ . }}</span><br/>{{ end }}</td>
+                        </tr>
+                    {{ end }}
+                </tbody>
+            </table>
         </div>
-        {{ end }}
     </div>
     {{ else }}
     <div class="hidden" id="no-results">
