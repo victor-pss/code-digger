@@ -3,7 +3,6 @@ package crawler
 import (
 	"fmt"
 	"io"
-	"log"
 	"regexp"
 	"strings"
 
@@ -14,6 +13,12 @@ import (
 type file struct {
 	Path  string   // path to the file
 	Terms [][]byte // list of terms
+}
+
+type ProgressUpdate struct {
+	ScannedFiles int
+	MatchedFiles int
+	MatchedFile  *file // nil if no match, populated if match found
 }
 
 func buildRegexFromTerms(terms string) (*regexp.Regexp, error) {
@@ -28,68 +33,92 @@ func buildRegexFromTerms(terms string) (*regexp.Regexp, error) {
 	return regexp.Compile(pattern)
 }
 
-func FtpCrawl(host, user, password, path, terms string) []file {
+func FtpCrawl(host, user, password, path, terms string, progressChan chan<- ProgressUpdate) ([]file, error) {
 	var found = []file{}
+	var filesScanned = 0
+	var filesMatched = 0
 	c, err := ftp.Dial(host + ":21")
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to connect to FTP server: %w", err)
 	}
 	defer c.Quit()
 
 	err = c.Login(user, password)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to login: %w", err)
 	}
 
 	w := c.Walk(path)
 
 	for w.Next() {
 		if w.Err() != nil {
-			log.Fatal(w.Err())
+			return found, fmt.Errorf("error walking directory: %w", w.Err())
 		}
 		if w.Stat().Type.String() == "folder" {
 			entries, err := c.List(w.Path())
 			if err != nil {
-				log.Fatal(err)
+				return found, fmt.Errorf("error listing directory: %w", err)
 			}
 
 			for _, entry := range entries {
 				// if strings.HasSuffix(entry.Name, ".php") {
 				if strings.HasSuffix(entry.Name, ".php") || strings.HasSuffix(entry.Name, ".js") {
 					fmt.Println(w.Path() + "/" + entry.Name)
+					filesScanned++
+
 					r, err := c.Retr(w.Path() + "/" + entry.Name)
 					if err != nil {
-						log.Fatal(err)
+						return found, fmt.Errorf("error retrieving file: %w", err)
 					}
 
 					buf, err := io.ReadAll(r)
 					if err != nil {
-						log.Fatal(err)
+						return found, fmt.Errorf("error reading file: %w", err)
 					}
 
 					// regex to find terms in each file
 					// (?i) = case insensitive
 					re, err := buildRegexFromTerms(terms)
 					if err != nil {
-						log.Fatal(err)
+						return found, fmt.Errorf("error building regex: %w", err)
 					}
-					if re.FindAll(buf, -1) != nil {
-						found = append(found, file{
+
+					matchedTerms := re.FindAll(buf, -1)
+					var matchedFile *file = nil
+
+					if matchedTerms != nil {
+						filesMatched++
+						newFile := file{
 							Path:  w.Path() + "/" + entry.Name,
-							Terms: re.FindAll(buf, -1),
-						})
+							Terms: matchedTerms,
+						}
+						found = append(found, newFile)
+						matchedFile = &newFile
+					}
+
+					// Send progress update if channel is provided
+					if progressChan != nil {
+						select {
+						case progressChan <- ProgressUpdate{
+							ScannedFiles: filesScanned,
+							MatchedFiles: filesMatched,
+							MatchedFile:  matchedFile,
+						}:
+						default:
+							// Channel is full or closed, continue without blocking
+						}
 					}
 
 					err = r.Close()
 					if err != nil {
-						log.Fatal(err)
+						return found, fmt.Errorf("error closing file: %w", err)
 					}
 				}
 			}
 		}
 	}
 	if err := c.Quit(); err != nil {
-		log.Fatal(err)
+		return found, fmt.Errorf("error closing FTP connection: %w", err)
 	}
-	return found
+	return found, nil
 }

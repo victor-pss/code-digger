@@ -14,9 +14,10 @@
     <body>
         <div class="container mx-auto space-y-4 w-7/12 pt-24">
             <h1>Code Digger</h1>
-            <p>This app helps search for static text in files by crawling through a sites FTP directory. 
-               In this case, the folder that is crawled is the theme folder for WordPress sites. A future version
-               will be able to crawl any folder you specify. Please enter the FTP credentials below.</p>
+            <p>This app searches for specific text terms in files by crawling through an FTP directory. 
+               You can search any folder you specify - the default path is set to WordPress theme folders, but you can 
+               change it to any directory on your FTP server. The app provides real-time progress updates as it scans 
+               files and displays results instantly as matches are found. Please enter the FTP credentials below.</p>
             {{ template "form" . }}
             <hr>
             <div id="result-section">
@@ -30,30 +31,35 @@
 {{ end }}
 
 {{ define "form" }}
-<form class="flex flex-col space-y-2" hx-post="/ftp" hx-target="#result-section" hx-ext="disable-element" hx-disable-element="#submit" hx-on::before-request="showGif()" hx-on::after-request="removeGif()">
+<form id="ftp-form" class="flex flex-col space-y-2" hx-post="/ftp" hx-target="#result-section" hx-ext="disable-element" hx-disable-element="#submit" hx-on::before-request="if(!validateForm()) { event.preventDefault(); return false; } showGif()" hx-on::after-request="removeGif()">
+    <div id="validation-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <strong class="font-bold">Validation Error!</strong>
+        <span class="block sm:inline" id="validation-message"></span>
+    </div>
+    
     <div class="flex flex-col">
-        <label for="host">FPT Host</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="Enter the host IP address" type="text" name="host" value="" />
+        <label for="host">FTP Host <span class="text-red-500">*</span></label>
+        <input id="host" class="rounded border-2 border-black border-solid p-1" placeholder="Enter the host IP address" type="text" name="host" value="" required />
     </div>
 
     <div class="flex flex-col">
-        <label for="user">FTP User:</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="user" value="" />
+        <label for="user">FTP User <span class="text-red-500">*</span></label>
+        <input id="user" class="rounded border-2 border-black border-solid p-1" placeholder="Enter FTP username" type="text" name="user" value="" required />
     </div>
 
     <div class="flex flex-col">
-        <label for="password"> FTP Password:</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="password" name="password" value="" />
+        <label for="password">FTP Password <span class="text-red-500">*</span></label>
+        <input id="password" class="rounded border-2 border-black border-solid p-1" placeholder="Enter FTP password" type="password" name="password" value="" required />
     </div>
 
     <div class="flex flex-col">
-        <label for="path">Search Path:</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="path" value="/public_html/wp-content/themes" />
+        <label for="path">Search Path <span class="text-red-500">*</span></label>
+        <input id="path" class="rounded border-2 border-black border-solid p-1" placeholder="Enter search path" type="text" name="path" value="/public_html/wp-content/themes" required />
     </div>
 
     <div class="flex flex-col">
-        <label for="terms">Terms:</label>
-        <input class="rounded border-2 border-black border-solid p-1" placeholder="" type="text" name="terms" value="the_field, the_sub_field, echo echo" />
+        <label for="terms">Terms <span class="text-red-500">*</span></label>
+        <input id="terms" class="rounded border-2 border-black border-solid p-1" placeholder="Enter search terms" type="text" name="terms" value="" required />
         <small class="text-gray-500">Multiple terms must be separated by commas.</small>
     </div>
     
@@ -69,13 +75,21 @@
         <video autoplay loop muted inline >
             <source src="assets/videos/miner.mp4" type="video/mp4"  />
         </video>
+        <div id="timer-display" class="hidden text-center text-lg font-semibold mt-4">Elapsed: 0.0s</div>
     </div>
-    {{ if .Results }}
+    {{ if .Error }}
+    <div id="error-message" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <strong class="font-bold">Error!</strong>
+        <span class="block sm:inline">{{ .Error }}</span>
+    </div>
+    {{ else if .Results }}
     <div id="ftp-results">
         <div class="flex flex-row justify-center">
             <p class="px-3">Total Files: <span class="text-green-500">{{ .TotalFiles }}</span></p>
             <p class="px-3"> | </p>
             <p class="px-3">Total Terms: <span class="text-green-500">{{ .TotalTerms }}</span></p>
+            <p class="px-3"> | </p>
+            <p class="px-3">Completed in: <span class="text-blue-500" id="elapsed-time">{{ printf "%.1f" .Duration }}</span>s</p>
         </div>
         <div class="result" id="ftp-results">
             <table class="table-auto m-auto border border-black">
@@ -96,12 +110,254 @@
             </table>
         </div>
     </div>
-    {{ else }}
-    <div class="hidden" id="no-results">
-        <h2>Results:</h2>
-        <p>No results found.</p>
-    </div>
     {{ end }}
 </div>
+{{ end }}
+
+{{ define "progress-template" }}
+<div>
+    <!-- Results section ABOVE the gif -->
+    <div id="results-container" class="mb-4 flex flex-col items-center">
+        <div class="w-full max-w-6xl">
+            <div class="flex flex-row justify-center mb-3">
+                <p class="px-3">Scanned: <span class="text-blue-500" id="scanned-files-count">0</span> files</p>
+                <p class="px-3"> | </p>
+                <p class="px-3">Total Files: <span class="text-green-500" id="total-files-count">0</span></p>
+                <p class="px-3"> | </p>
+                <p class="px-3">Total Terms: <span class="text-green-500" id="total-terms-count">0</span></p>
+                <p class="px-3"> | </p>
+                <p class="px-3">Completed in: <span class="text-blue-500" id="elapsed-time-live">0.0</span>s</p>
+            </div>
+            <!-- Scan Complete Banner (hidden initially) -->
+            <div id="scan-complete-banner" class="hidden w-3/4 m-auto mb-4 bg-green-100 border-l-4 border-green-500 text-green-700 px-4 py-3 rounded shadow-md transition-all duration-300">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">Scan Complete!</p>
+                    </div>
+                </div>
+            </div>
+            <div class="result">
+                <table class="w-3/4 m-auto border border-black text-xs" id="results-table">
+                    <thead>
+                        <tr class="bg-gray-300">
+                            <th class="border border-black px-4 py-2">File</th>
+                            <th class="border border-black px-4 py-2 w-[20%]">Terms Found</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody">
+                        <!-- Skeleton/placeholder row -->
+                        <tr class="bg-white" id="skeleton-row">
+                            <td class="border border-black px-4 py-2 text-gray-400 italic">
+                                Searching...
+                            </td>
+                            <td class="border border-black px-4 py-2 text-center w-[20%]">
+                                -
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Miner gif and timer below -->
+    <div class="video show" id="loading">
+        <video autoplay loop muted inline>
+            <source src="assets/videos/miner.mp4" type="video/mp4" />
+        </video>
+    </div>
+</div>
+<script>
+    (function() {
+        // Start the timer immediately
+        let startTime = Date.now();
+        let timerInterval;
+        
+        const timerDisplay = document.getElementById('timer-display');
+        const elapsedTimeLive = document.getElementById('elapsed-time-live');
+        
+        // Always start the timer
+        timerInterval = setInterval(function() {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            if (timerDisplay) {
+                timerDisplay.textContent = 'Elapsed: ' + elapsed + 's';
+            }
+            // Update the live elapsed time in results
+            if (elapsedTimeLive) {
+                elapsedTimeLive.textContent = elapsed;
+            }
+        }, 100);
+        
+        // Set up SSE connection
+        const jobId = "{{ .JobID }}";
+        console.log("Connecting to SSE for job:", jobId);
+        const eventSource = new EventSource("/progress/" + jobId);
+        
+        eventSource.addEventListener("connected", function(e) {
+            console.log("SSE connected:", e.data);
+        });
+        
+        let totalTermsCount = 0;
+        
+        eventSource.addEventListener("progress", function(e) {
+            console.log("Progress event:", e.data);
+            const data = JSON.parse(e.data);
+            
+            // Update scanned files counter at the top
+            const scannedCounter = document.getElementById("scanned-files-count");
+            if (scannedCounter) {
+                scannedCounter.textContent = data.scannedFiles;
+            }
+        });
+        
+        eventSource.addEventListener("match-found", function(e) {
+            console.log("Match found event received!");
+            console.log("Raw data:", e.data);
+            
+            try {
+                const matchData = JSON.parse(e.data);
+                console.log("Parsed match data:", matchData);
+                
+                // Create new table row
+                const tbody = document.getElementById("results-tbody");
+                console.log("Tbody found:", tbody);
+                if (tbody) {
+                    // Remove skeleton row on first match
+                    const skeletonRow = document.getElementById("skeleton-row");
+                    if (skeletonRow) {
+                        skeletonRow.remove();
+                    }
+                    
+                    const row = document.createElement("tr");
+                    // Apply alternating row colors
+                    if (tbody.children.length % 2 === 0) {
+                        row.className = "bg-white";
+                    } else {
+                        row.className = "bg-gray-300";
+                    }
+                    
+                    // File path cell
+                    const pathCell = document.createElement("td");
+                    pathCell.className = "border border-black px-4 py-2";
+                    pathCell.textContent = matchData.path;
+                    
+                    // Terms cell
+                    const termsCell = document.createElement("td");
+                    termsCell.className = "border border-black px-4 py-2 text-center w-[20%]";
+                    matchData.terms.forEach(function(term, index) {
+                        const span = document.createElement("span");
+                        span.textContent = term;
+                        termsCell.appendChild(span);
+                        // Only add <br> if not the last term
+                        if (index < matchData.terms.length - 1) {
+                            termsCell.appendChild(document.createElement("br"));
+                        }
+                        
+                        // Count total terms
+                        const match = term.match(/- (\d+)$/);
+                        if (match) {
+                            totalTermsCount += parseInt(match[1]);
+                        }
+                    });
+                    
+                    row.appendChild(pathCell);
+                    row.appendChild(termsCell);
+                    tbody.appendChild(row);
+                    console.log("Row added! Total rows now:", tbody.children.length);
+                    
+                    // Update running totals in real-time
+                    const totalFilesEl = document.getElementById("total-files-count");
+                    const totalTermsEl = document.getElementById("total-terms-count");
+                    if (totalFilesEl) {
+                        totalFilesEl.textContent = tbody.children.length;
+                    }
+                    if (totalTermsEl) {
+                        totalTermsEl.textContent = totalTermsCount;
+                    }
+                    
+                    console.log("Updated totals - Files:", tbody.children.length, "Terms:", totalTermsCount);
+                }
+            } catch (error) {
+                console.error("Error in match-found handler:", error);
+            }
+        });
+        
+        eventSource.addEventListener("complete", function(e) {
+            console.log("Complete event received!");
+            eventSource.close();
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            // Calculate final time
+            const finalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+            
+            // Hide loading video
+            const loading = document.getElementById("loading");
+            if (loading) {
+                loading.classList.remove("show");
+                loading.classList.add("hidden");
+                console.log("Loading hidden");
+            }
+            
+            // Show scan complete banner
+            const banner = document.getElementById("scan-complete-banner");
+            if (banner) {
+                banner.classList.remove("hidden");
+                // Smooth animation
+                setTimeout(function() {
+                    banner.style.opacity = "1";
+                }, 10);
+            }
+            
+            // Check if we have any results in the table
+            const tbody = document.getElementById("results-tbody");
+            const skeletonRow = document.getElementById("skeleton-row");
+            const hasResults = tbody && tbody.children.length > 0 && !skeletonRow;
+            
+            console.log("Job complete! Has results:", hasResults, "Rows:", tbody ? tbody.children.length : 0);
+            
+            if (!hasResults && skeletonRow) {
+                // No results found - update skeleton row to show no results message
+                skeletonRow.innerHTML = 
+                    '<td colspan="2" class="border border-black px-4 py-2 text-center text-gray-600">' +
+                    '<strong>No matches found</strong><br/>' +
+                    '<span class="text-sm">Completed in ' + finalTime + 's</span>' +
+                    '</td>';
+                skeletonRow.classList.add("bg-gray-100");
+            } else if (hasResults) {
+                // Update the final elapsed time in the results display
+                if (elapsedTimeLive) {
+                    elapsedTimeLive.textContent = finalTime;
+                }
+            }
+        });
+        
+        eventSource.addEventListener("error", function(e) {
+            eventSource.close();
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            document.getElementById("result-section").innerHTML = 
+                '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">' +
+                '<strong class="font-bold">Error!</strong>' +
+                '<span class="block sm:inline">' + e.data + '</span>' +
+                '</div>';
+        });
+        
+        eventSource.onerror = function(err) {
+            console.error("EventSource failed:", err);
+            eventSource.close();
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+        };
+    })();
+</script>
 {{ end }}
 

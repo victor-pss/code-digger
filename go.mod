@@ -3,6 +3,7 @@ module example.com/m
 go 1.22.3
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/labstack/echo/v4 v4.12.0
 )
